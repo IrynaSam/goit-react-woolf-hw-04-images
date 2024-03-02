@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './Button/Button';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Loader } from './Loader/Loader';
@@ -8,95 +8,68 @@ import { Searchbar } from './Searchbar/Searchbar';
 import { fetchImages } from './auth';
 import { Wrapper, LoaderWrapper } from './App.styled';
 
-export class App extends Component {
-  state = {
-    searchQuery: '',
-    images: [],
-    currentPage: 1,
-    isLoading: false,
-    showModal: false,
-    largeImageURL: '',
-    totalHits: 0,
-  };
+export const App = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [largeImageURL, setLargeImageURL] = useState('');
+  const [totalHits, setTotalHits] = useState(0);
 
-  async componentDidUpdate(prevProps, prevState) {
-    if (
-      this.state.currentPage !== prevState.currentPage ||
-      this.state.searchQuery !== prevState.searchQuery
-    ) {
-      this.setState({ isLoading: true });
+  useEffect(() => {
+    const fetchImagesAsync = async () => {
+      if (!searchQuery) return;
+
+      setIsLoading(true);
       try {
-        const data = await fetchImages(
-          this.state.searchQuery,
-          this.state.currentPage
-        );
-
-        this.setState(prevState => ({
-          images: [...prevState.images, ...data.hits],
-          totalHits: data.totalHits,
-          loadMore: prevState.currentPage * 12 < data.totalHits,
-        }));
+        const data = await fetchImages(searchQuery, currentPage);
+        setImages(prevImages => [...prevImages, ...data.hits]);
+        setTotalHits(data.totalHits);
       } catch (error) {
         console.error(error);
       } finally {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       }
-    }
-  }
-  loadMore = () => {
-    this.setState(prevState => ({
-      currentPage: prevState.currentPage + 1,
-    }));
+    };
+
+    fetchImagesAsync();
+  }, [searchQuery, currentPage]);
+
+  const loadMore = () => {
+    setCurrentPage(prevCurrentPage => prevCurrentPage + 1);
   };
 
-  onChangeQuery = query => {
-    this.setState({
-      searchQuery: query,
-      currentPage: 1,
-      images: [],
-    });
+  const onChangeQuery = query => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+    setImages([]);
   };
 
-  toggleModal = () => {
-    this.setState(state => ({
-      showModal: !state.showModal,
-    }));
+  const toggleModal = () => {
+    setShowModal(!showModal);
   };
 
-  openModal = largeImageURL => {
-    this.setState({ largeImageURL });
-    this.toggleModal();
+  const openModal = imageURL => {
+    setLargeImageURL(imageURL);
+    toggleModal();
   };
 
-  render() {
-    const {
-      images,
-      isLoading,
-      showModal,
-      largeImageURL,
-      totalHits,
-      currentPage,
-    } = this.state;
-    const imagesPerPage = 12;
-    const isLoadMoreVisible =
-      images.length < totalHits &&
-      images.length / currentPage === imagesPerPage;
-    return (
-      <Wrapper>
-        <Searchbar onSubmit={this.onChangeQuery} />
-        <ImageGallery images={images} onImageClick={this.openModal} />
-        <LoaderWrapper style={{ display: 'flex', justifyContent: 'center' }}>
-          {isLoading && <Loader />}
-        </LoaderWrapper>
+  const imagesPerPage = 12;
+  const isLoadMoreVisible =
+    images.length < totalHits && images.length / currentPage === imagesPerPage;
 
-        {isLoadMoreVisible && (
-          <Button onClick={this.loadMore}>Load more</Button>
-        )}
+  return (
+    <Wrapper>
+      <Searchbar onSubmit={onChangeQuery} />
+      <ImageGallery images={images} onImageClick={openModal} />
+      <LoaderWrapper style={{ display: 'flex', justifyContent: 'center' }}>
+        {isLoading && <Loader />}
+      </LoaderWrapper>
 
-        {showModal && (
-          <Modal onClose={this.toggleModal} image={largeImageURL} />
-        )}
-      </Wrapper>
-    );
-  }
-}
+      {isLoadMoreVisible && <Button onClick={loadMore}>Load more</Button>}
+
+      {showModal && <Modal onClose={toggleModal} image={largeImageURL} />}
+    </Wrapper>
+  );
+};
